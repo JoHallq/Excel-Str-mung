@@ -13,7 +13,7 @@ Eine Excel-Tabelle, die die Strömung um einen Zylinder berechnet. Hinter dem Zy
 
 ## Browser-Version
 
-`web/wirbelstrasse.html` rechnet dasselbe Verfahren auf demselben 130 × 50-Gitter, nur live und flüssig. Mit Schiebereglern für Re und D, drei Ansichten (Wirbelstärke, Stromlinien, Tempo), Messsonde mit Strouhal-Zahl, und den Zylinder kann man mit dem Finger verschieben.
+`web/wirbelstrasse.html` rechnet dasselbe Verfahren live auf einem feineren Gitter (200 × 80). Es gibt fünf Modelle: Zylinder, Flügel (NACA 2412 mit Anstellwinkel), Kuh als Pixelart, Auto und Cybertruck. Rauchfäden zeigen die Anströmung vom Einlass bis hinter das Modell. Dazu kommen Regler für Re und Größe, drei Ansichten (Wirbelstärke, Stromlinien, Tempo) und eine Messsonde mit Strouhal-Zahl. Das Modell lässt sich mit dem Finger verschieben.
 
 ## Schnellstart (ohne Makros)
 
