@@ -156,6 +156,10 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
         <span class="sym">L</span><span class="name" id="sizeName">Durchmesser in Zellen</span>
         <input type="range" id="size" min="8" max="20" step="1" value="12"><output id="sizeOut">12</output>
       </div>
+      <div class="param" id="liftRow" hidden>
+        <span class="sym">h</span><span class="name">Abstand zum Boden in Zellen (0 = steht auf dem Boden)</span>
+        <input type="range" id="lift" min="0" max="30" step="1" value="0"><output id="liftOut">0</output>
+      </div>
       <div class="param" id="alphaRow" hidden>
         <span class="sym">α</span><span class="name">Anstellwinkel des Flügels</span>
         <input type="range" id="alpha" min="-10" max="25" step="1" value="8"><output id="alphaOut">8°</output>
@@ -188,7 +192,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     <h2>Was hier gerechnet wird</h2>
     <p>Jede Zelle speichert die Wirbelstärke ω und die Stromfunktion ψ. Pro Zeitschritt wird ω mit der Strömung transportiert (Upwind 2. Ordnung) und durch die Viskosität verschmiert. Danach wird ψ aus ∇²ψ = −ω nachgezogen, mit einem überrelaxierten Sweep pro Schritt. Aus ψ folgt die Geschwindigkeit u = ∂ψ/∂y, v = −∂ψ/∂x.</p>
     <p>Die Rauchfäden starten links am Einlass, wo die Luft mit U∞ ankommt, und werden mit der berechneten Geschwindigkeit mitgetragen. So sieht man, wie die Anströmung um das Modell herumgeführt wird und dahinter abreißt.</p>
-    <p>Am Modell entsteht Wirbelstärke nach der Thom-Formel ω = 2·(ψ<sub>Körper</sub> − ψ<sub>Nachbar</sub>). Kuh und Fahrzeuge stehen auf dem Boden, dort ist ψ<sub>Körper</sub> = 0. Beim Flügel wird ψ<sub>Körper</sub> so gesetzt, dass um das Profil die Zirkulation der Profiltheorie herrscht: Γ = π·c·U∞·sin(α − α₀), mit α₀ = −2,1° für das Profil NACA 2412 und gedeckelt bei 14°, wo die Strömung abreißt. Dadurch strömt oben mehr Luft vorbei als unten, und genau das ist Auftrieb.</p>
+    <p>Am Modell entsteht Wirbelstärke nach der Thom-Formel ω = 2·(ψ<sub>Körper</sub> − ψ<sub>Nachbar</sub>). Stehen Kuh und Fahrzeuge auf dem Boden, ist dort ψ<sub>Körper</sub> = 0. Hebt man sie an, strömt Luft darunter durch, und ψ<sub>Körper</sub> wird über eine Potentialrechnung so gewählt, dass der Körper keine Zirkulation trägt. Beim Flügel wird ψ<sub>Körper</sub> so gesetzt, dass um das Profil die Zirkulation der Profiltheorie herrscht: Γ = π·c·U∞·sin(α − α₀), mit α₀ = −2,1° für das Profil NACA 2412 und gedeckelt bei 14°, wo die Strömung abreißt. Dadurch strömt oben mehr Luft vorbei als unten, und genau das ist Auftrieb.</p>
     <p>Die Excel-Fassung mit einer Formel pro Zelle liegt hier: <a href="https://github.com/JoHallq/Excel-Str-mung" target="_blank" rel="noopener">github.com/JoHallq/Excel-Str-mung</a>.</p>
   </section>
 </div>
@@ -252,19 +256,19 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
       } },
     kuh: { ground: true, size: [1, 3, 2], re: 300, x: 50, y: 0, sizeName: "Pixelgröße in Zellen", reName: "Reynoldszahl, bezogen auf die Höhe der Kuh",
       inside: (x, y, s, sh) => {
-        const c = Math.floor((x - sh.x) / s), r = COW.length - 1 - Math.floor(y / s);
+        const c = Math.floor((x - sh.x) / s), r = COW.length - 1 - Math.floor((y - sh.y) / s);
         if (r < 0 || r >= COW.length || c < 0 || c >= COW[0].length) return 0;
         return COW_CODE[COW[r][c]] || 0;
       } },
     auto: { ground: true, size: [40, 80, 60], re: 300, x: 40, y: 0, sizeName: "Länge in Zellen", reName: "Reynoldszahl, bezogen auf die Höhe des Autos",
       inside: (x, y, s, sh) => {
-        const u = (x - sh.x) / s, v = y / s;
+        const u = (x - sh.x) / s, v = (y - sh.y) / s;
         if ((u - .17) ** 2 + (v - .075) ** 2 <= .075 ** 2 || (u - .8) ** 2 + (v - .075) ** 2 <= .075 ** 2) return 5;
         return inPoly(SEDAN, u, v) ? 6 : 0;
       } },
     truck: { ground: true, size: [40, 80, 60], re: 300, x: 40, y: 0, sizeName: "Länge in Zellen", reName: "Reynoldszahl, bezogen auf die Höhe des Trucks",
       inside: (x, y, s, sh) => {
-        const u = (x - sh.x) / s, v = y / s;
+        const u = (x - sh.x) / s, v = (y - sh.y) / s;
         if ((u - .17) ** 2 + (v - .08) ** 2 <= .08 ** 2 || (u - .79) ** 2 + (v - .08) ** 2 <= .08 ** 2) return 5;
         return inPoly(TRUCK, u, v) ? 7 : 0;
       } },
@@ -284,11 +288,12 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
       else A[k] = -0.85 * A[k] + 1.85 * (A[k + 1] + A[k - 1] + A[k + NX] + A[k - NX]) / 4;
     }
   }
-  let wingWarm = false;
-  function wingPsi() {
-    if (!wingWarm) {
+  let potWarm = false;
+  // ψ_Körper für einen schwebenden Körper: ohne Zirkulation (stumpfe Körper) bzw. mit Γ aus der Profiltheorie (Flügel)
+  function floatPsi() {
+    if (!potWarm) {
       for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { PU[id(i, j)] = UINF * j; P1[id(i, j)] = 0; }
-      wingWarm = true;
+      potWarm = true;
     }
     laplace(PU, 0, null, 250); laplace(P1, 1, null, 250);
     let gU = 0, g1 = 0;
@@ -297,17 +302,20 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
       for (const n of [k + 1, k - 1, k + NX, k - NX]) if (!M[n]) { gU += PU[n]; g1 += P1[n] - 1; }
     }
     const c0 = -gU / g1;
+    if (S.shape !== "fluegel") return c0;
     const aEff = Math.max(-14, Math.min(14, S.alpha + 2.1)) * Math.PI / 180;
     const gamma = Math.PI * S.size * UINF * Math.sin(aEff);
     return c0 - gamma / Math.abs(g1);
   }
   function buildMask() {
     const sh = SHAPES[S.shape];
+    if (sh.ground && S.y < 2) S.y = 0;
+    S.onGround = sh.ground && S.y === 0;
     let x0 = NX, x1 = -1, y0 = NY, y1 = -1;
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
       const k = id(i, j); let c = sh.inside(i, j, S.size, S);
       c = c === true ? 1 : (c || 0);
-      if (i < 3 || i > NX - 4 || j > NY - 3 || (!sh.ground && j < 2)) c = 0;
+      if (i < 3 || i > NX - 4 || j > NY - 3 || (!S.onGround && j < 2)) c = 0;
       M[k] = c ? 1 : 0; COL[k] = c;
       if (c) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); }
     }
@@ -320,7 +328,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     wallCells = Int32Array.from(wl);
     S.bbox = [x0, x1, y0, y1];
     S.lref = sh.lrefIsSize ? S.size : (y1 - y0 + 1);
-    S.psiB = sh.ground ? 0 : S.shape === "fluegel" ? wingPsi() : UINF * S.y;
+    S.psiB = S.onGround ? 0 : floatPsi();
     updateParams();
   }
   function updateParams() {
@@ -418,7 +426,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   const probe = [], crossings = []; let lastV = 0, vMean = 0;
   function probeCell() {
     const [x0, x1, y0, y1] = S.bbox;
-    return [Math.min(NX - 6, Math.round(x1 + 1.5 * S.lref)), Math.round(SHAPES[S.shape].ground ? y1 * 0.6 : (y0 + y1) / 2)];
+    return [Math.min(NX - 6, Math.round(x1 + 1.5 * S.lref)), Math.round(S.onGround ? y1 * 0.6 : (y0 + y1) / 2)];
   }
   function sampleProbe() {
     const [pi, pj] = probeCell(), v = V[id(pi, pj)];
@@ -461,13 +469,13 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
         ctx.fillRect(Math.floor(i * sx), Math.floor((NY - 1 - j) * sy), Math.ceil(sx), Math.ceil(sy));
       }
       if (sh === "kuh" && !S.pix) { // Auge
-        const ex = S.x + 2 * s, ey = (COW.length - 1 - 3) * s;
+        const ex = S.x + 2 * s, ey = S.y + (COW.length - 1 - 3) * s;
         ctx.fillStyle = "#fff"; ctx.fillRect(Math.floor(ex * sx), Math.floor((NY - 1 - ey - (s - 1)) * sy), Math.ceil(sx * s), Math.ceil(sy * s));
       }
       return;
     }
-    const poly = (pts, fill) => { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach(([u, v], q) => { const px = X(S.x + u * s), py = Y(v * s); q ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.closePath(); ctx.fill(); };
-    const wheel = (u, v, r) => { ctx.fillStyle = "#0e1012"; ctx.beginPath(); ctx.arc(X(S.x + u * s), Y(v * s), r * s * sx, 0, 7); ctx.fill(); ctx.fillStyle = "#8a9296"; ctx.beginPath(); ctx.arc(X(S.x + u * s), Y(v * s), r * s * sx * 0.45, 0, 7); ctx.fill(); };
+    const poly = (pts, fill) => { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach(([u, v], q) => { const px = X(S.x + u * s), py = Y(S.y + v * s); q ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.closePath(); ctx.fill(); };
+    const wheel = (u, v, r) => { ctx.fillStyle = "#0e1012"; ctx.beginPath(); ctx.arc(X(S.x + u * s), Y(S.y + v * s), r * s * sx, 0, 7); ctx.fill(); ctx.fillStyle = "#8a9296"; ctx.beginPath(); ctx.arc(X(S.x + u * s), Y(S.y + v * s), r * s * sx * 0.45, 0, 7); ctx.fill(); };
     if (sh === "zylinder") { ctx.fillStyle = "rgb(16,35,26)"; ctx.beginPath(); ctx.arc(X(S.x), Y(S.y), s / 2 * sx, 0, 7); ctx.fill(); }
     else if (sh === "fluegel") {
       const a = S.alpha * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
@@ -573,7 +581,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   };
   function setLegend() { const l = legends[S.view]; $("legL").textContent = l[0]; $("legBar").style.background = l[1]; $("legR").textContent = l[2]; }
   function showParams() {
-    $("reOut").textContent = S.re; $("sizeOut").textContent = S.size; $("alphaOut").textContent = S.alpha + "°";
+    $("reOut").textContent = S.re; $("liftOut").textContent = S.y; $("lift").value = S.y; $("sizeOut").textContent = S.size; $("alphaOut").textContent = S.alpha + "°";
     $("dtOut").textContent = +S.dt.toFixed(3); $("nuOut").textContent = S.nu.toFixed(3);
   }
   function setShape(name, warm) {
@@ -582,7 +590,8 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     const sz = $("size"); sz.min = sh.size[0]; sz.max = sh.size[1]; sz.value = S.size;
     $("re").value = S.re; $("sizeName").textContent = sh.sizeName; $("reName").textContent = sh.reName;
     $("alphaRow").hidden = name !== "fluegel";
-    $("hint").textContent = sh.ground ? "Modell lässt sich nach links und rechts schieben" : "Modell lässt sich verschieben";
+    $("hint").textContent = sh.ground ? "Modell verschieben oder vom Boden abheben" : "Modell lässt sich verschieben";
+    $("liftRow").hidden = !sh.ground; $("lift").value = 0;
     reset(); showParams();
     for (let q = 0; q < (warm || 0); q++) step();
   }
@@ -602,6 +611,10 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   $("resetBtn").addEventListener("click", () => { reset(); showParams(); });
   $("re").addEventListener("input", (e) => { S.re = +e.target.value; updateParams(); showParams(); crossings.length = 0; });
   $("size").addEventListener("input", (e) => { S.size = +e.target.value; buildMask(); showParams(); crossings.length = 0; });
+  $("lift").addEventListener("input", (e) => {
+    const [, , y0, y1] = S.bbox; let h = +e.target.value; if (h < 2) h = 0;
+    S.y = Math.min(h, S.y + (NY - 5 - y1)); buildMask(); showParams(); crossings.length = 0;
+  });
   $("alpha").addEventListener("input", (e) => { S.alpha = +e.target.value; buildMask(); showParams(); crossings.length = 0; });
   $("spf").addEventListener("input", (e) => { S.spf = +e.target.value; $("spfOut").textContent = S.spf; });
   $("pix").addEventListener("change", (e) => { S.pix = e.target.checked; });
@@ -627,8 +640,10 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     const c = toCell(ev), [x0, x1, y0, y1] = S.bbox, w = x1 - x0, h = y1 - y0;
     let nx = Math.round((c.x + drag.dx) * 2) / 2, ny = Math.round((c.y + drag.dy) * 2) / 2;
     nx = Math.max(S.x - x0 + 6, Math.min(S.x + (NX - 30 - x1), nx));
-    if (!SHAPES[S.shape].ground) ny = Math.max(S.y - y0 + 4, Math.min(S.y + (NY - 5 - y1), ny)); else ny = S.y;
-    if (nx !== S.x || ny !== S.y) { S.x = nx; S.y = ny; buildMask(); crossings.length = 0; }
+    ny = Math.min(S.y + (NY - 5 - y1), ny);
+    if (SHAPES[S.shape].ground) { ny = Math.max(0, Math.round(ny)); if (ny < 2) ny = 0; }
+    else ny = Math.max(S.y - y0 + 4, ny);
+    if (nx !== S.x || ny !== S.y) { S.x = nx; S.y = ny; buildMask(); crossings.length = 0; showParams(); }
   });
   const endDrag = () => { drag = null; cv.classList.remove("dragging"); };
   cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
