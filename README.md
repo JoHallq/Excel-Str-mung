@@ -13,7 +13,7 @@ Eine Excel-Tabelle, die die Strömung um einen Zylinder berechnet. Hinter dem Zy
 
 ## Browser-Version
 
-`web/wirbelstrasse.html` rechnet dasselbe Verfahren live auf einem feineren Gitter (200 × 80). Es gibt fünf Modelle: Zylinder, Flügel (NACA 2412 mit Anstellwinkel), Kuh als Pixelart, Auto und Cybertruck. Rauchfäden zeigen die Anströmung vom Einlass bis hinter das Modell. Dazu kommen Regler für Re und Größe, drei Ansichten (Wirbelstärke, Stromlinien, Tempo) und eine Messsonde mit Strouhal-Zahl. Das Modell lässt sich mit dem Finger verschieben.
+`web/wirbelstrasse.html` rechnet dasselbe Verfahren live auf einem feineren Gitter (200 × 80). Es gibt sechs Modelle: Zylinder (auch mit Drall für den Magnus-Effekt), Flügel (NACA 2412 mit Anstellwinkel), Kuh als Pixelart, Auto, Cybertruck und eine eigene Form, die man mit dem Finger malt. Kuh und Fahrzeuge lassen sich vom Boden abheben, der Boden ist wahlweise Rollband oder feste Straße. Widerstands- und Auftriebsbeiwert (cW, cA) werden live über eine Impulsbilanz gemessen. Rauchfäden zeigen die Anströmung vom Einlass bis hinter das Modell. Dazu kommen Regler für Re und Größe, drei Ansichten (Wirbelstärke, Stromlinien, Tempo) und eine Messsonde mit Strouhal-Zahl. Das Modell lässt sich mit dem Finger verschieben.
 
 ## Schnellstart (ohne Makros)
 

@@ -100,6 +100,10 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
 .stat .v small { font-size: 0.75rem; color: var(--muted); }
 #spark { width: 100%; height: 70px; display: block; }
 .note { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.v.cw { color: var(--accent); } .v.ca { color: var(--gold); }
+.drawtools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg.seg-tool { margin-left: 0; }
+#field.paint { cursor: crosshair; }
 
 .explain { max-width: 68ch; }
 .explain p { margin: 0 0 0.6em; }
@@ -121,6 +125,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     <label class="chip"><input type="radio" name="shape" value="kuh" id="shK"><span><svg viewBox="0 0 26 16" aria-hidden="true"><path class="f" d="M1 3h5v1h1v1h15v1h2v6h-2v3h-2v-3h-11v3h-2v-3h-1v-2h-3v-2h-2z"/></svg>Kuh</span></label>
     <label class="chip"><input type="radio" name="shape" value="auto" id="shA"><span><svg viewBox="0 0 26 16" aria-hidden="true"><path class="f" d="M1 12v-4l6-1.5 4-4h7l4 4 3 .5v5z"/><circle class="f" cx="6" cy="12.5" r="2.5"/><circle class="f" cx="20" cy="12.5" r="2.5"/></svg>Auto</span></label>
     <label class="chip"><input type="radio" name="shape" value="truck" id="shT"><span><svg viewBox="0 0 26 16" aria-hidden="true"><path class="f" d="M1 12v-4.5l12-5 12 4v5.5z"/><circle class="f" cx="6" cy="12.5" r="2.5"/><circle class="f" cx="20" cy="12.5" r="2.5"/></svg>Cybertruck</span></label>
+    <label class="chip"><input type="radio" name="shape" value="eigen" id="shE"><span><svg viewBox="0 0 26 16" aria-hidden="true"><path class="f" d="M4 14l1-4 11-9 3 3-11 9zM3 15l1.2-.3-.9-.9z"/><rect class="f" x="18" y="12" width="7" height="2.4" rx="1"/></svg>Eigene Form</span></label>
   </div>
 
   <section class="stage" aria-label="Strömungsbild">
@@ -137,6 +142,14 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
       <button id="run" type="button">Pause</button>
       <button id="stepBtn" type="button">Einzelschritt</button>
       <button id="resetBtn" type="button">Reset</button>
+      <div class="drawtools" id="drawTools" hidden>
+        <div class="seg seg-tool" role="radiogroup" aria-label="Zeichenwerkzeug">
+          <input type="radio" name="tool" id="tPen" value="1" checked><label for="tPen">Malen</label>
+          <input type="radio" name="tool" id="tErase" value="0"><label for="tErase">Radieren</label>
+        </div>
+        <button id="clearBtn" type="button">Alles löschen</button>
+        <button id="sampleBtn" type="button">Beispiel</button>
+      </div>
       <div class="seg" role="radiogroup" aria-label="Ansicht">
         <input type="radio" name="view" id="vW" value="w" checked><label for="vW">Wirbel ω</label>
         <input type="radio" name="view" id="vP" value="p"><label for="vP">Stromlinien ψ</label>
@@ -152,13 +165,17 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
         <span class="sym">Re</span><span class="name" id="reName">Reynoldszahl, bezogen auf die Höhe des Modells</span>
         <input type="range" id="re" min="20" max="600" step="10" value="150"><output id="reOut">150</output>
       </div>
-      <div class="param">
+      <div class="param" id="sizeRow">
         <span class="sym">L</span><span class="name" id="sizeName">Durchmesser in Zellen</span>
         <input type="range" id="size" min="8" max="20" step="1" value="12"><output id="sizeOut">12</output>
       </div>
       <div class="param" id="liftRow" hidden>
         <span class="sym">h</span><span class="name">Abstand zum Boden in Zellen (0 = steht auf dem Boden)</span>
         <input type="range" id="lift" min="0" max="30" step="1" value="0"><output id="liftOut">0</output>
+      </div>
+      <div class="param" id="spinRow">
+        <span class="sym">Ω</span><span class="name">Drall: Umfangsgeschwindigkeit in U∞, plus = im Uhrzeigersinn</span>
+        <input type="range" id="spin" min="-3" max="3" step="0.25" value="0"><output id="spinOut">0</output>
       </div>
       <div class="param" id="alphaRow" hidden>
         <span class="sym">α</span><span class="name">Anstellwinkel des Flügels</span>
@@ -171,6 +188,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
       <div class="row2">
         <label><input type="checkbox" id="smoke" checked> Rauchfäden</label>
         <label><input type="checkbox" id="pix"> Rechenzellen zeigen</label>
+        <label><input type="checkbox" id="road"> Feste Straße statt Rollband</label>
       </div>
       <p class="note">Gleiches Verfahren wie in <code>Wirbelstrasse.xlsx</code>, aber auf einem feineren Gitter (200 × 80 statt 130 × 50). U∞ = 1, Δt = <span id="dtOut">0.1</span>, ν = U∞·L/Re = <span id="nuOut">0.080</span>. Δt passt sich automatisch an, damit die Rechnung stabil bleibt.</p>
     </section>
@@ -182,9 +200,11 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
         <div class="stat"><span class="k">Zeit t</span><span class="v" id="sT">0,0</span></div>
         <div class="stat"><span class="k">Strouhal-Zahl</span><span class="v" id="sSt">–</span></div>
         <div class="stat"><span class="k">Periode</span><span class="v" id="sP">–</span></div>
+        <div class="stat"><span class="k">Widerstand c<sub>W</sub></span><span class="v cw" id="sCw">–</span></div>
+        <div class="stat"><span class="k">Auftrieb c<sub>A</sub></span><span class="v ca" id="sCa">–</span></div>
       </div>
-      <canvas id="spark" width="600" height="140" aria-label="Querbewegung v an der Messsonde über die Zeit"></canvas>
-      <p class="note">Die Sonde (Kreis im Bild) misst hinter dem Modell die Querbewegung v. Schwingt sie, schwimmt eine Wirbelstraße. St = L / (U∞·T); beim Zylinder real etwa 0,2.</p>
+      <canvas id="spark" width="600" height="140" aria-label="Widerstands- und Auftriebsbeiwert über die Zeit"></canvas>
+      <p class="note">c<sub>W</sub> und c<sub>A</sub> sind Mittelwerte über das gezeigte Zeitfenster, bezogen auf L. Die Sonde (Kreis im Bild) misst hinter dem Modell die Querbewegung; daraus folgt St = L / (U∞·T), beim Zylinder real etwa 0,2.</p>
     </section>
   </div>
 
@@ -192,7 +212,9 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     <h2>Was hier gerechnet wird</h2>
     <p>Jede Zelle speichert die Wirbelstärke ω und die Stromfunktion ψ. Pro Zeitschritt wird ω mit der Strömung transportiert (Upwind 2. Ordnung) und durch die Viskosität verschmiert. Danach wird ψ aus ∇²ψ = −ω nachgezogen, mit einem überrelaxierten Sweep pro Schritt. Aus ψ folgt die Geschwindigkeit u = ∂ψ/∂y, v = −∂ψ/∂x.</p>
     <p>Die Rauchfäden starten links am Einlass, wo die Luft mit U∞ ankommt, und werden mit der berechneten Geschwindigkeit mitgetragen. So sieht man, wie die Anströmung um das Modell herumgeführt wird und dahinter abreißt.</p>
-    <p>Am Modell entsteht Wirbelstärke nach der Thom-Formel ω = 2·(ψ<sub>Körper</sub> − ψ<sub>Nachbar</sub>). Stehen Kuh und Fahrzeuge auf dem Boden, ist dort ψ<sub>Körper</sub> = 0. Hebt man sie an, strömt Luft darunter durch, und ψ<sub>Körper</sub> wird über eine Potentialrechnung so gewählt, dass der Körper keine Zirkulation trägt. Beim Flügel wird ψ<sub>Körper</sub> so gesetzt, dass um das Profil die Zirkulation der Profiltheorie herrscht: Γ = π·c·U∞·sin(α − α₀), mit α₀ = −2,1° für das Profil NACA 2412 und gedeckelt bei 14°, wo die Strömung abreißt. Dadurch strömt oben mehr Luft vorbei als unten, und genau das ist Auftrieb.</p>
+    <p>Am Modell entsteht Wirbelstärke nach der Thom-Formel ω = 2·(ψ<sub>Körper</sub> − ψ<sub>Nachbar</sub>). Steht ein Modell auf dem Boden, ist dort ψ<sub>Körper</sub> = 0. Schwebt es, bestimmt ψ<sub>Körper</sub>, wie viel Luft oben und unten vorbeiströmt, also die Zirkulation und damit den Auftrieb. Dieser Wert wird laufend so nachgeführt, dass der Druck auf einem Rundweg um das Modell eindeutig bleibt. Sonst würde der Druck nach einer Umrundung nicht zum Startwert zurückkehren. So entstehen Auftrieb am Flügel und der Magnus-Effekt am drehenden Zylinder von selbst. Beim Zylinder mit Drall bewegt sich zusätzlich die Wand mit, das steckt als Zusatzterm in der Wandwirbelstärke.</p>
+    <p>c<sub>W</sub> und c<sub>A</sub> kommen aus einer Impulsbilanz: Was an Impuls durch ein Rechteck um das Modell hinein- und hinausströmt, plus der Druck auf dem Rechteck, muss vom Modell aufgenommen werden. Wegen des groben Gitters und der Kanalwände liegt c<sub>W</sub> beim Zylinder etwa 30 bis 50 % über Literaturwerten für freie Anströmung.</p>
+    <p>Rollband oder Straße: Ein fahrendes Auto sieht im eigenen Bezugssystem eine Straße, die mit U∞ mitläuft. Das ist das Rollband, ein Boden ohne Reibung. Die feste Straße entspricht einem stehenden Auto im Wind: Der Boden bremst die Luft, und es wächst eine Grenzschicht heran.</p>
     <p>Die Excel-Fassung mit einer Formel pro Zelle liegt hier: <a href="https://github.com/JoHallq/Excel-Str-mung" target="_blank" rel="noopener">github.com/JoHallq/Excel-Str-mung</a>.</p>
   </section>
 </div>
@@ -202,9 +224,13 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   // <sim>
   const NX = 200, NY = 80, N = NX * NY, UINF = 1, BETA = 1.5;
   const W0 = new Float64Array(N), W1 = new Float64Array(N), P = new Float64Array(N);
-  const U = new Float64Array(N), V = new Float64Array(N);
+  const U = new Float64Array(N), V = new Float64Array(N), Uprev = new Float64Array(N), Vprev = new Float64Array(N);
   const M = new Uint8Array(N), NF = new Uint8Array(N), COL = new Uint8Array(N);
-  let wallCells = new Int32Array(0);
+  const PB = new Float64Array(N);   // ψ des Körpers, pro Zelle (gemalte Formen können mehrere Teile haben)
+  const SPW = new Float64Array(N);  // Wandgeschwindigkeit tangential (Drall des Zylinders)
+  const COMP = new Int32Array(N);
+  let floatCells = new Int32Array(0);  // Zellen schwebender Körper, deren ψ nachgeführt wird
+  const KAPPA = 0.003;
   const id = (i, j) => j * NX + i;
 
   function inPoly(pts, u, v) {
@@ -242,6 +268,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     const yc = xc < p ? m / (p * p) * (2 * p * xc - xc * xc) : m / ((1 - p) ** 2) * (1 - 2 * p + 2 * p * xc - xc * xc);
     return [yc, yt];
   };
+  const CUSTOM = new Uint8Array(N);
   const SHAPES = {
     zylinder: { ground: false, size: [8, 20, 12], re: 150, x: 45, y: 40.5, sizeName: "Durchmesser in Zellen", reName: "Reynoldszahl, bezogen auf den Durchmesser",
       inside: (x, y, s, sh) => (x - sh.x) ** 2 + (y - sh.y) ** 2 <= (s / 2) ** 2 },
@@ -272,16 +299,18 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
         if ((u - .17) ** 2 + (v - .08) ** 2 <= .08 ** 2 || (u - .79) ** 2 + (v - .08) ** 2 <= .08 ** 2) return 5;
         return inPoly(TRUCK, u, v) ? 7 : 0;
       } },
+    eigen: { ground: true, custom: true, size: [1, 1, 1], re: 200, x: 0, y: 0, sizeName: "", reName: "Reynoldszahl, bezogen auf die Höhe der Zeichnung",
+      inside: (x, y) => CUSTOM[id(x, y)] ? 8 : 0 },
   };
 
-  const S = { shape: "zylinder", re: 150, size: 12, alpha: 8, x: 45, y: 40.5, n: 0, dt: 0.1, nu: 0.08, psiB: 40.5,
-              lref: 12, bbox: [0, 0, 0, 0], running: true, spf: 10, view: "w", pix: false, smoke: true };
+  const S = { shape: "zylinder", re: 150, size: 12, alpha: 8, spin: 0, theta: 0, x: 45, y: 40.5, n: 0, dt: 0.1, nu: 0.08, psiB: 40.5,
+              lref: 12, perr: 0, ef: 0, bbox: [0, 0, 0, 0], cv: [0, 0, 0, 0], onGround: false, road: false,
+              running: true, spf: 10, view: "w", pix: false, smoke: true };
 
-  // Flügel: ψ_Körper so wählen, dass die Zirkulation um das Profil der Profiltheorie entspricht,
-  // Γ = π·c·U∞·sin(α − α₀) mit α₀ = −2,1° (NACA 2412), oberhalb von 14° gedeckelt (Strömungsabriss).
-  // Dazu zwei Potentialfelder: ψU (Körper auf 0) und ψ1 (Körper auf 1, Ränder auf 0). Beide linear.
+  // Startwert für ψ_Körper eines schwebenden Körpers aus einer Potentialrechnung (danach wird nachgeführt):
+  // ohne Zirkulation (stumpfe Körper), mit einem Teil der Profiltheorie (Flügel) oder aus dem Drall (Magnus-Zylinder).
   const PU = new Float64Array(N), P1 = new Float64Array(N);
-  function laplace(A, body, edge, iters) {
+  function laplace(A, body, iters) {
     for (let it = 0; it < iters; it++) for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX; i++) {
       const k = id(i, j);
       if (M[k]) A[k] = body; else if (i === NX - 1) A[k] = A[k - 1];
@@ -289,76 +318,158 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     }
   }
   let potWarm = false;
-  // ψ_Körper für einen schwebenden Körper: ohne Zirkulation (stumpfe Körper) bzw. mit Γ aus der Profiltheorie (Flügel)
   function floatPsi() {
     if (!potWarm) {
       for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { PU[id(i, j)] = UINF * j; P1[id(i, j)] = 0; }
       potWarm = true;
     }
-    laplace(PU, 0, null, 250); laplace(P1, 1, null, 250);
+    laplace(PU, 0, 250); laplace(P1, 1, 250);
     let gU = 0, g1 = 0;
     for (let j = 2; j < NY - 1; j++) for (let i = 1; i < NX - 1; i++) {
       const k = id(i, j); if (!M[k]) continue;
       for (const n of [k + 1, k - 1, k + NX, k - NX]) if (!M[n]) { gU += PU[n]; g1 += P1[n] - 1; }
     }
     const c0 = -gU / g1;
-    if (S.shape !== "fluegel") return c0;
-    const aEff = Math.max(-14, Math.min(14, S.alpha + 2.1)) * Math.PI / 180;
-    const gamma = Math.PI * S.size * UINF * Math.sin(aEff);
+    let gamma = 0;
+    if (S.shape === "fluegel") {
+      const aEff = Math.max(-14, Math.min(14, S.alpha + 2.1)) * Math.PI / 180;
+      gamma = 0.25 * Math.PI * S.size * UINF * Math.sin(aEff);  // nur Startwert; bei kleinem Re ist der Auftrieb deutlich kleiner als reibungsfrei
+    } else if (S.shape === "zylinder") {
+      gamma = 2 * Math.PI * (S.size / 2) * S.spin * UINF;  // Γ = 2πR·u_Wand (im Uhrzeigersinn positiv)
+    }
     return c0 - gamma / Math.abs(g1);
   }
-  function buildMask() {
+  // Gemalte Formen: jedes zusammenhängende Teil bekommt sein eigenes ψ. Teile am Boden haben ψ = 0,
+  // schwebende Teile werden so bestimmt, dass sie keine Zirkulation tragen (ψ = Mittel der Nachbarn).
+  function customPsi() {
+    COMP.fill(-1);
+    const comps = [];
+    for (let k0 = 0; k0 < N; k0++) {
+      if (!M[k0] || COMP[k0] >= 0) continue;
+      const c = comps.length, stack = [k0], cells = []; let ground = false;
+      COMP[k0] = c;
+      while (stack.length) {
+        const k = stack.pop(); cells.push(k);
+        if (Math.floor(k / NX) <= 1) ground = true;
+        for (const n of [k + 1, k - 1, k + NX, k - NX]) if (n >= 0 && n < N && M[n] && COMP[n] < 0) { COMP[n] = c; stack.push(n); }
+      }
+      const pairs = [];
+      for (const k of cells) for (const n of [k + 1, k - 1, k + NX, k - NX]) if (n >= 0 && n < N && !M[n]) pairs.push(n);
+      comps.push({ cells, ground, pairs, val: 0 });
+    }
+    const A = PU;
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) A[id(i, j)] = UINF * j;
+    for (const c of comps) if (!c.ground) { let y = 0; for (const k of c.cells) y += Math.floor(k / NX); c.val = UINF * y / c.cells.length; }
+    for (let it = 0; it < 500; it++) {
+      for (const c of comps) for (const k of c.cells) A[k] = c.val;
+      for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX; i++) {
+        const k = id(i, j);
+        if (M[k]) continue; else if (i === NX - 1) A[k] = A[k - 1];
+        else A[k] = -0.85 * A[k] + 1.85 * (A[k + 1] + A[k - 1] + A[k + NX] + A[k - NX]) / 4;
+      }
+      for (const c of comps) if (!c.ground && c.pairs.length) { let sm = 0; for (const n of c.pairs) sm += A[n]; c.val = sm / c.pairs.length; }
+    }
+    potWarm = false;
+    for (const c of comps) for (const k of c.cells) PB[k] = c.val;
+    floatCells = Int32Array.from(comps.filter((c) => !c.ground).flatMap((c) => c.cells));
+    S.onGround = comps.some((c) => c.ground);
+    S.parts = comps.length;
+  }
+
+  // Beispielzeichnung: die Buchstaben C, F, D (drei getrennte Teile)
+  function sampleDrawing() {
+    const L = { C: ["#####", "#....", "#....", "#....", "#....", "#....", "#####"],
+                F: ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
+                D: ["####.", "#..##", "#...#", "#...#", "#...#", "#..##", "####."] };
+    CUSTOM.fill(0);
+    ["C", "F", "D"].forEach((ch, n) => L[ch].forEach((row, r) => [...row].forEach((c, q) => {
+      if (c !== "#") return;
+      for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) CUSTOM[id(40 + n * 16 + q * 2 + a, 33 + (6 - r) * 2 + b)] = 1;
+    })));
+  }
+  sampleDrawing();
+  const PREV = new Uint8Array(N);
+  function buildMask(light) {
     const sh = SHAPES[S.shape];
-    if (sh.ground && S.y < 2) S.y = 0;
-    S.onGround = sh.ground && S.y === 0;
+    PREV.set(M);
+    if (!sh.custom) { if (sh.ground && S.y < 2) S.y = 0; S.onGround = sh.ground && S.y === 0; }
     let x0 = NX, x1 = -1, y0 = NY, y1 = -1;
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
       const k = id(i, j); let c = sh.inside(i, j, S.size, S);
       c = c === true ? 1 : (c || 0);
-      if (i < 3 || i > NX - 4 || j > NY - 3 || (!S.onGround && j < 2)) c = 0;
+      if (i < 3 || i > NX - 4 || j > NY - 3 || (!sh.custom && !S.onGround && j < 2)) c = 0;
       M[k] = c ? 1 : 0; COL[k] = c;
       if (c) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); }
     }
-    NF.fill(0);
-    const wl = [];
+    if (x1 < 0) { x0 = 60; x1 = 61; y0 = 39; y1 = 40; }
+    NF.fill(0); SPW.fill(0);
     for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX - 1; i++) {
       const k = id(i, j); NF[k] = 4 - M[k + 1] - M[k - 1] - M[k + NX] - M[k - NX];
-      if (M[k] && NF[k] > 0 && j >= 2) wl.push(k);
     }
-    wallCells = Int32Array.from(wl);
     S.bbox = [x0, x1, y0, y1];
     S.lref = sh.lrefIsSize ? S.size : (y1 - y0 + 1);
-    S.psiB = S.onGround ? 0 : floatPsi();
+    const m = 5;
+    S.cv = [Math.max(3, x0 - m), Math.min(NX - 5, x1 + m), Math.max(1, y0 - m), Math.min(NY - 3, y1 + m)];
+    if (sh.custom) {
+      if (light) { for (let k = 0; k < N; k++) if (M[k] && !PREV[k]) PB[k] = P[k]; }
+      else customPsi();
+    } else {
+      S.psiB = S.onGround ? 0 : floatPsi();
+      for (let k = 0; k < N; k++) PB[k] = M[k] ? S.psiB : 0;
+      const fl = []; if (!S.onGround) for (let k = 0; k < N; k++) if (M[k]) fl.push(k);
+      floatCells = Int32Array.from(fl);
+    }
+    S.ef = 0;
+    if (S.shape === "zylinder" && S.spin) {
+      // Drall im Uhrzeigersinn: Wandgeschwindigkeit u_W = k·U∞·(dy, −dx)/r, Tangente t = (n_y, −n_x)
+      for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX - 1; i++) {
+        const k = id(i, j); if (!M[k] || !NF[k]) continue;
+        const dx = i - S.x, dy = j - S.y, r = Math.hypot(dx, dy) || 1;
+        const ux = S.spin * UINF * dy / r, uy = -S.spin * UINF * dx / r;
+        let acc = 0;
+        if (!M[k + 1]) acc += ux * 0 - uy * 1;   // n = (1,0)  → t = (0,−1)
+        if (!M[k - 1]) acc += uy;                 // n = (−1,0) → t = (0,1)
+        if (!M[k + NX]) acc += ux;                // n = (0,1)  → t = (1,0)
+        if (!M[k - NX]) acc -= ux;                // n = (0,−1) → t = (−1,0)
+        SPW[k] = acc / NF[k];
+      }
+    }
     updateParams();
   }
   function updateParams() {
     S.nu = UINF * S.lref / S.re;
-    S.dt = Math.min(0.1, 1.6 * S.nu / (UINF * UINF), 0.2 / S.nu);
+    const umax = Math.max(1, Math.abs(S.spin) * (S.shape === "zylinder" ? 1 : 0));
+    S.dt = Math.min(0.1, 1.6 * S.nu / (umax * umax), 0.2 / S.nu);
   }
   function reset() {
     buildMask();
     W0.fill(0); W1.fill(0); U.fill(UINF); V.fill(0);
-    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) P[id(i, j)] = M[id(i, j)] ? S.psiB : UINF * j;
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) P[id(i, j)] = M[id(i, j)] ? PB[id(i, j)] : UINF * j;
     // Startzustand: reibungsfreie Umströmung (∇²ψ = 0), damit der erste Schritt keinen Sprung sieht
     for (let it = 0; it < 400; it++) for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX; i++) {
       const k = id(i, j);
       if (i === NX - 1) P[k] = P[k - 1];
       else if (!M[k]) P[k] = (1 - 1.85) * P[k] + 1.85 * (P[k + 1] + P[k - 1] + P[k + NX] + P[k - NX]) / 4;
     }
-    S.n = 0; probe.length = 0; crossings.length = 0; lastV = 0; vMean = 0;
+    Uprev.set(U); Vprev.set(V);
+    S.n = 0; probe.length = 0; crossings.length = 0; lastV = 0; vMean = 0; forceHist.length = 0; S.cw = 0; S.ca = 0;
     resetSmoke();
   }
 
   // Ein Zeitschritt, in derselben Reihenfolge wie die Blöcke im Excel-Blatt
   function step() {
-    const dt = S.dt, nu = S.nu, pb = S.psiB;
-    W0.set(W1);
-    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
-      const k = id(i, j);
-      if (i === 0 || j === 0 || j === NY - 1 || i === NX - 1) { U[k] = UINF; V[k] = 0; }
-      else { U[k] = (P[k + NX] - P[k - NX]) / 2; V[k] = -(P[k + 1] - P[k - 1]) / 2; }
+    const dt = S.dt, nu = S.nu, road = S.road;
+    W0.set(W1); Uprev.set(U); Vprev.set(V);
+    for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX - 1; i++) {
+      const k = id(i, j); U[k] = (P[k + NX] - P[k - NX]) / 2; V[k] = -(P[k + 1] - P[k - 1]) / 2;
     }
-    for (let j = 2; j < NY - 2; j++) for (let i = 2; i < NX - 2; i++) {
+    for (let i = 0; i < NX; i++) {
+      U[id(i, 0)] = road ? 0 : U[id(i, 1)]; V[id(i, 0)] = 0;
+      U[id(i, NY - 1)] = U[id(i, NY - 2)]; V[id(i, NY - 1)] = 0;
+    }
+    for (let j = 0; j < NY; j++) { U[id(0, j)] = UINF; V[id(0, j)] = 0; U[id(NX - 1, j)] = U[id(NX - 2, j)]; V[id(NX - 1, j)] = V[id(NX - 2, j)]; }
+    const jStart = road ? 1 : 2;
+    for (let j = jStart; j < NY - 2; j++) for (let i = 2; i < NX - 2; i++) {
       const k = id(i, j); let w;
       if (M[k]) {
         const nf = NF[k];
@@ -367,32 +478,110 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
           let s = 0;
           if (!M[k + 1]) s += P[k + 1]; if (!M[k - 1]) s += P[k - 1];
           if (!M[k + NX]) s += P[k + NX]; if (!M[k - NX]) s += P[k - NX];
-          w = 2 * (pb - s / nf);
+          w = 2 * (PB[k] - s / nf) + 2 * SPW[k];
         }
       } else {
         const c = W0[k], u = U[k], v = V[k];
         const dxm = (3 * c - 4 * W0[k - 1] + W0[k - 2]) / 2, dxp = (-3 * c + 4 * W0[k + 1] - W0[k + 2]) / 2;
-        const dym = (3 * c - 4 * W0[k - NX] + W0[k - 2 * NX]) / 2, dyp = (-3 * c + 4 * W0[k + NX] - W0[k + 2 * NX]) / 2;
+        const dym = j > 1 ? (3 * c - 4 * W0[k - NX] + W0[k - 2 * NX]) / 2 : c - W0[k - NX];
+        const dyp = (-3 * c + 4 * W0[k + NX] - W0[k + 2 * NX]) / 2;
         const adv = Math.max(u, 0) * dxm + Math.min(u, 0) * dxp + Math.max(v, 0) * dym + Math.min(v, 0) * dyp;
         const lap = W0[k + 1] + W0[k - 1] + W0[k + NX] + W0[k - NX] - 4 * c;
         w = c + dt * (-adv + nu * lap);
       }
       W1[k] = w;
     }
-    for (let j = 2; j < NY - 2; j++) { const w = W1[id(NX - 3, j)]; W1[id(NX - 2, j)] = w; W1[id(NX - 1, j)] = w; }
+    if (road) { // feste Straße: Haftbedingung am Boden, Wandwirbelstärke nach Thom
+      for (let i = 2; i < NX - 2; i++) { const k = id(i, 0); W1[k] = M[k] || M[k + NX] ? 0 : -2 * P[k + NX]; }
+    } else { for (let i = 0; i < NX; i++) { W1[id(i, 0)] = 0; W1[id(i, 1)] = 0; } }
+    for (let j = 0; j < NY - 2; j++) { const w = W1[id(NX - 3, j)]; W1[id(NX - 2, j)] = w; W1[id(NX - 1, j)] = w; }
     for (let j = NY - 1; j >= 0; j--) for (let i = 0; i < NX; i++) {
       const k = id(i, j);
       if (j === 0) P[k] = 0;
       else if (j === NY - 1) P[k] = UINF * (NY - 1);
       else if (i === 0) P[k] = UINF * j;
       else if (i === NX - 1) P[k] = P[k - 1];
-      else if (M[k]) P[k] = S.psiB;
+      else if (M[k]) P[k] = PB[k];
       else P[k] = (1 - BETA) * P[k] + BETA * (P[k + 1] + P[k - 1] + P[k + NX] + P[k - NX] + W1[k]) / 4;
     }
     S.n++;
-    if (!Number.isFinite(W1[id(NX >> 1, NY >> 1)]) || !Number.isFinite(S.psiB)) { reset(); return; }
+    S.theta += S.spin * UINF / (S.size / 2) * dt;
+    if (!Number.isFinite(W1[id(NX >> 1, NY >> 1)]) || !Number.isFinite(P[id(NX >> 1, NY >> 1)])) { reset(); return; }
+    forces(dt);
+    // ψ schwebender Körper so nachführen, dass der Druck auf dem Rundweg eindeutig ist (Rest → 0)
+    if (floatCells.length) {
+      S.ef += (S.perr - S.ef) * 0.02;
+      const d = KAPPA * S.ef; S.psiB += d;
+      for (let q = 0; q < floatCells.length; q++) PB[floatCells[q]] += d;
+    }
     if (S.smoke) advectSmoke(dt);
     sampleProbe();
+  }
+
+  // Kräfte über eine Impulsbilanz in einem Rechteck um das Modell:
+  // F = −d/dt ∫u dA − ∮ (u (u·n) + p n − ν ∂u/∂n) ds. Den Druck p erhält man, indem man
+  // ∇p = −∂u/∂t − (u·∇)u + ν∇²u entlang des Rechtecks aufsummiert (∇²u = −∂ω/∂y, ∇²v = ∂ω/∂x).
+  const forceHist = [];
+  function forces(dt) {
+    const [i0, i1, j0, j1] = S.cv, nu = S.nu;
+    const path = [];
+    for (let i = i0; i < i1; i++) path.push([i, j0, 0, -1]);
+    for (let j = j0; j < j1; j++) path.push([i1, j, 1, 0]);
+    for (let i = i1; i > i0; i--) path.push([i, j1, 0, 1]);
+    for (let j = j1; j > j0; j--) path.push([i0, j, -1, 0]);
+    const L = path.length, pr = new Float64Array(L), gx = new Float64Array(L), gy = new Float64Array(L), ok = new Uint8Array(L);
+    for (let q = 0; q < L; q++) {
+      const [i, j] = path[q], k = id(i, j);
+      if (M[k]) continue;
+      ok[q] = 1;
+      const u = U[k], v = V[k];
+      const ux = (U[k + 1] - U[k - 1]) / 2, uy = (U[k + NX] - U[k - NX]) / 2;
+      const vx = (V[k + 1] - V[k - 1]) / 2, vy = (V[k + NX] - V[k - NX]) / 2;
+      const wx = (W1[k + 1] - W1[k - 1]) / 2, wy = (W1[k + NX] - W1[k - NX]) / 2;
+      gx[q] = -(U[k] - Uprev[k]) / dt - (u * ux + v * uy) - nu * wy;
+      gy[q] = -(V[k] - Vprev[k]) / dt - (u * vx + v * vy) + nu * wx;
+    }
+    let start = 0;
+    for (let q = 0; q < L; q++) if (!ok[q]) { start = (q + 1) % L; break; }
+    let prev = -1, closed = true;
+    for (let c = 0; c < L; c++) {
+      const q = (start + c) % L;
+      if (!ok[q]) { prev = -1; closed = false; continue; }
+      if (prev < 0) pr[q] = 0;
+      else { const [ia, ja] = path[prev], [ib, jb] = path[q]; pr[q] = pr[prev] + 0.5 * (gx[prev] + gx[q]) * (ib - ia) + 0.5 * (gy[prev] + gy[q]) * (jb - ja); }
+      prev = q;
+    }
+    if (closed && L > 1) { // Rundweg schließen und den kleinen Rest gleichmäßig verteilen
+      const last = (start + L - 1) % L, [ia, ja] = path[last], [ib, jb] = path[start];
+      const err = pr[last] + 0.5 * (gx[last] + gx[start]) * (ib - ia) + 0.5 * (gy[last] + gy[start]) * (jb - ja) - pr[start];
+      for (let c = 0; c < L; c++) pr[(start + c) % L] -= err * c / L;
+      S.perr = err;
+    } else S.perr = 0;
+    let fx = 0, fy = 0;
+    for (let q = 0; q < L; q++) {
+      if (!ok[q]) continue;
+      const [i, j, nx, ny] = path[q], k = id(i, j);
+      const corner = (i === i0 || i === i1) && (j === j0 || j === j1);
+      // Ecken gehören zu zwei Seiten; jede Seite zählt sie halb
+      const wts = corner ? [[nx, ny, 0.5], ...((nx !== 0) ? [[0, j === j0 ? -1 : 1, 0.5]] : [[i === i0 ? -1 : 1, 0, 0.5]])] : [[nx, ny, 1]];
+      const u = U[k], v = V[k];
+      for (const [mx, my, wt] of wts) {
+        const un = u * mx + v * my;
+        const dudn = mx ? mx * (U[k + 1] - U[k - 1]) / 2 : my * (U[k + NX] - U[k - NX]) / 2;
+        const dvdn = mx ? mx * (V[k + 1] - V[k - 1]) / 2 : my * (V[k + NX] - V[k - NX]) / 2;
+        fx -= wt * (u * un + pr[q] * mx - nu * dudn);
+        fy -= wt * (v * un + pr[q] * my - nu * dvdn);
+      }
+    }
+    let ix = 0, iy = 0;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const k = id(i, j); if (M[k]) continue;
+      ix += U[k] - Uprev[k]; iy += V[k] - Vprev[k];
+    }
+    fx -= ix / dt; fy -= iy / dt;
+    const q = 2 / (UINF * UINF * S.lref), a = Math.min(1, dt / 1.5);
+    S.cw += (fx * q - S.cw) * a; S.ca += (fy * q - S.ca) * a;
+    if (S.n % 4 === 0 && S.n > 40) { forceHist.push([S.cw, S.ca]); if (forceHist.length > 300) forceHist.shift(); }
   }
 
   // Rauchfäden: Teilchen werden am Einlass ausgesetzt und mit (u, v) mitgetragen
@@ -426,7 +615,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   const probe = [], crossings = []; let lastV = 0, vMean = 0;
   function probeCell() {
     const [x0, x1, y0, y1] = S.bbox;
-    return [Math.min(NX - 6, Math.round(x1 + 1.5 * S.lref)), Math.round(S.onGround ? y1 * 0.6 : (y0 + y1) / 2)];
+    return [Math.min(NX - 6, Math.round(x1 + 1.5 * S.lref)), Math.max(2, Math.round(S.onGround ? y1 * 0.6 : (y0 + y1) / 2))];
   }
   function sampleProbe() {
     const [pi, pj] = probeCell(), v = V[id(pi, pj)];
@@ -445,14 +634,14 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   // </sim>
 
   const $ = (s) => document.getElementById(s);
-  window.__sim = { S, step, reset, M, W1, P, U, V, get lines() { return lines; } };
+  window.__sim = { S, step, reset, M, W1, P, U, V, PB, CUSTOM, forceHist, get lines() { return lines; } };
 
   // Darstellung
   const cv = $("field"), ctx = cv.getContext("2d");
   const off = document.createElement("canvas"); off.width = NX; off.height = NY;
   const octx = off.getContext("2d"), img = octx.createImageData(NX, NY);
   const G = [31, 107, 74], Wt = [255, 255, 255], Au = [224, 161, 0];
-  const SOLID = { 1: [16, 35, 26], 2: [24, 24, 24], 3: [246, 244, 236], 4: [236, 150, 168], 5: [14, 16, 18], 6: [52, 66, 78], 7: [168, 176, 178] };
+  const SOLID = { 1: [16, 35, 26], 2: [24, 24, 24], 3: [246, 244, 236], 4: [236, 150, 168], 5: [14, 16, 18], 6: [52, 66, 78], 7: [168, 176, 178], 8: [16, 35, 26] };
   const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   const colorW = (w) => { const t = Math.max(-1, Math.min(1, w / 0.6)); return t < 0 ? mix(Wt, G, -t) : mix(Wt, Au, t); };
   const colorP = (p) => { const q = p / 2, f = q - Math.floor(q); const base = mix([245, 239, 200], [79, 143, 111], Math.max(0, Math.min(1, p / (NY - 1)))); const e = f < 0.12 ? 0.55 : 1; return [base[0] * e, base[1] * e, base[2] * e]; };
@@ -462,7 +651,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
 
   function drawBody() {
     const sh = S.shape, s = S.size;
-    if (S.pix || sh === "kuh") {
+    if (S.pix || sh === "kuh" || sh === "eigen") {
       for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
         const c = COL[id(i, j)]; if (!c) continue;
         const k = SOLID[c]; ctx.fillStyle = `rgb(${k[0]},${k[1]},${k[2]})`;
@@ -476,7 +665,14 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     }
     const poly = (pts, fill) => { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach(([u, v], q) => { const px = X(S.x + u * s), py = Y(S.y + v * s); q ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.closePath(); ctx.fill(); };
     const wheel = (u, v, r) => { ctx.fillStyle = "#0e1012"; ctx.beginPath(); ctx.arc(X(S.x + u * s), Y(S.y + v * s), r * s * sx, 0, 7); ctx.fill(); ctx.fillStyle = "#8a9296"; ctx.beginPath(); ctx.arc(X(S.x + u * s), Y(S.y + v * s), r * s * sx * 0.45, 0, 7); ctx.fill(); };
-    if (sh === "zylinder") { ctx.fillStyle = "rgb(16,35,26)"; ctx.beginPath(); ctx.arc(X(S.x), Y(S.y), s / 2 * sx, 0, 7); ctx.fill(); }
+    if (sh === "zylinder") {
+      ctx.fillStyle = "rgb(16,35,26)"; ctx.beginPath(); ctx.arc(X(S.x), Y(S.y), s / 2 * sx, 0, 7); ctx.fill();
+      if (S.spin) { // Speichen zeigen die Drehung
+        ctx.strokeStyle = "rgba(242,181,42,0.9)"; ctx.lineWidth = 2.5; ctx.beginPath();
+        for (let q = 0; q < 3; q++) { const a = S.theta + q * 2 * Math.PI / 3; ctx.moveTo(X(S.x), Y(S.y)); ctx.lineTo(X(S.x) + Math.cos(a) * s / 2 * sx * 0.8, Y(S.y) + Math.sin(a) * s / 2 * sy * 0.8); }
+        ctx.stroke();
+      }
+    }
     else if (sh === "fluegel") {
       const a = S.alpha * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
       const xle = S.x - 0.25 * s * ca, yle = S.y + 0.25 * s * sa, up = [], lo = [];
@@ -491,7 +687,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     } else if (sh === "truck") {
       poly(TRUCK, "rgb(168,176,178)");
       ctx.strokeStyle = "rgba(40,44,46,0.8)"; ctx.lineWidth = 1.5; ctx.beginPath();
-      ctx.moveTo(X(S.x + .25 * s), Y(.285 * s)); ctx.lineTo(X(S.x + .46 * s), Y(.355 * s)); ctx.lineTo(X(S.x + .62 * s), Y(.32 * s)); ctx.stroke();
+      ctx.moveTo(X(S.x + .25 * s), Y(S.y + .285 * s)); ctx.lineTo(X(S.x + .46 * s), Y(S.y + .355 * s)); ctx.lineTo(X(S.x + .62 * s), Y(S.y + .32 * s)); ctx.stroke();
       wheel(.17, .08, .08); wheel(.79, .08, .08);
     }
   }
@@ -526,7 +722,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
       const k = id(i, j), o = ((NY - 1 - j) * NX + i) * 4;
       let c;
-      if (M[k]) c = S.view === "s" ? [20, 40, 60] : S.view === "p" ? colorP(S.psiB) : Wt;
+      if (M[k]) c = S.view === "s" ? [20, 40, 60] : S.view === "p" ? colorP(PB[k]) : Wt;
       else if (S.view === "w") c = colorW(W1[k]);
       else if (S.view === "p") c = colorP(P[k]);
       else c = colorS(Math.hypot(U[k], V[k]));
@@ -539,7 +735,12 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     const dark = S.view === "s";
     if (S.smoke) drawSmoke(dark);
     drawBody();
-    if (SHAPES[S.shape].ground) { ctx.fillStyle = "rgba(23,38,31,0.7)"; ctx.fillRect(0, cv.height - 3, cv.width, 3); }
+    if (S.road) { // feste Straße
+      ctx.fillStyle = "#3a3f42"; ctx.fillRect(0, cv.height - 6, cv.width, 6);
+      ctx.fillStyle = "rgba(255,255,255,0.8)"; for (let x = 10; x < cv.width; x += 40) ctx.fillRect(x, cv.height - 4, 20, 2);
+    } else if (SHAPES[S.shape].ground) { // Rollband
+      ctx.fillStyle = "rgba(23,38,31,0.7)"; ctx.fillRect(0, cv.height - 3, cv.width, 3);
+    }
     drawInflow(dark);
     const [pi, pj] = probeCell();
     ctx.strokeStyle = dark ? "rgba(255,255,255,0.8)" : "rgba(23,38,31,0.6)"; ctx.lineWidth = 2;
@@ -559,19 +760,27 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     if (cw > 0 && (sp.width !== cw || sp.height !== ch)) { sp.width = cw; sp.height = ch; }
     const w = sp.width, h = sp.height;
     sctx.clearRect(0, 0, w, h);
+    const fh = forceHist, fmt = (v) => (v >= 0 ? "" : "−") + Math.abs(v).toFixed(2).replace(".", ",");
+    if (fh.length > 10) {
+      let mw = 0, ma = 0; for (const [a, b] of fh) { mw += a; ma += b; }
+      $("sCw").textContent = fmt(mw / fh.length); $("sCa").textContent = fmt(ma / fh.length);
+    } else { $("sCw").textContent = "–"; $("sCa").textContent = "–"; }
+    let lo = -0.5, hi = 0.5;
+    for (const [a, b] of fh) { lo = Math.min(lo, a, b); hi = Math.max(hi, a, b); }
+    const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+    const yOf = (v) => h - 4 * dpr - (v - lo) / (hi - lo) * (h - 22 * dpr);
     sctx.strokeStyle = cssVar("--line"); sctx.lineWidth = 1;
-    sctx.beginPath(); sctx.moveTo(0, h / 2); sctx.lineTo(w, h / 2); sctx.stroke();
-    if (probe.length > 1) {
-      const sc = (h / 2 - 4 * dpr) / 1.2;
-      sctx.strokeStyle = cssVar("--accent"); sctx.lineWidth = 2 * dpr; sctx.lineJoin = "round";
-      sctx.beginPath();
-      probe.forEach((v, i) => { const x = i / 299 * w, y = h / 2 - Math.max(-1.2, Math.min(1.2, v)) * sc; i ? sctx.lineTo(x, y) : sctx.moveTo(x, y); });
+    sctx.beginPath(); sctx.moveTo(0, yOf(0)); sctx.lineTo(w, yOf(0)); sctx.stroke();
+    [[0, "--accent"], [1, "--gold"]].forEach(([q, col]) => {
+      if (fh.length < 2) return;
+      sctx.strokeStyle = cssVar(col); sctx.lineWidth = 2 * dpr; sctx.lineJoin = "round"; sctx.beginPath();
+      fh.forEach((f, i) => { const x = i / 299 * w, y = yOf(f[q]); i ? sctx.lineTo(x, y) : sctx.moveTo(x, y); });
       sctx.stroke();
-      const lx = (probe.length - 1) / 299 * w, ly = h / 2 - Math.max(-1.2, Math.min(1.2, probe[probe.length - 1])) * sc;
-      sctx.fillStyle = cssVar("--gold"); sctx.beginPath(); sctx.arc(lx, ly, 3.5 * dpr, 0, Math.PI * 2); sctx.fill();
-    }
-    sctx.fillStyle = cssVar("--muted"); sctx.font = Math.round(11 * dpr) + "px " + cssVar("--mono");
-    sctx.fillText("v an der Sonde", 4 * dpr, 12 * dpr);
+    });
+    sctx.font = Math.round(11 * dpr) + "px " + cssVar("--mono");
+    sctx.fillStyle = cssVar("--accent"); sctx.fillText("cW", 4 * dpr, 12 * dpr);
+    sctx.fillStyle = cssVar("--gold"); sctx.fillText("cA", 30 * dpr, 12 * dpr);
+    sctx.fillStyle = cssVar("--muted"); sctx.fillText("0", w - 12 * dpr, yOf(0) - 3 * dpr);
   }
 
   const legends = {
@@ -583,6 +792,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   function showParams() {
     $("reOut").textContent = S.re; $("liftOut").textContent = S.y; $("lift").value = S.y; $("sizeOut").textContent = S.size; $("alphaOut").textContent = S.alpha + "°";
     $("dtOut").textContent = +S.dt.toFixed(3); $("nuOut").textContent = S.nu.toFixed(3);
+    $("spinOut").textContent = (S.spin > 0 ? "↻ " : S.spin < 0 ? "↺ " : "") + Math.abs(S.spin).toLocaleString("de-DE");
   }
   function setShape(name, warm) {
     const sh = SHAPES[name];
@@ -590,8 +800,14 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     const sz = $("size"); sz.min = sh.size[0]; sz.max = sh.size[1]; sz.value = S.size;
     $("re").value = S.re; $("sizeName").textContent = sh.sizeName; $("reName").textContent = sh.reName;
     $("alphaRow").hidden = name !== "fluegel";
-    $("hint").textContent = sh.ground ? "Modell verschieben oder vom Boden abheben" : "Modell lässt sich verschieben";
-    $("liftRow").hidden = !sh.ground; $("lift").value = 0;
+    $("spinRow").hidden = name !== "zylinder";
+    $("sizeRow").hidden = !!sh.custom;
+    $("drawTools").hidden = !sh.custom;
+    cv.classList.toggle("paint", !!sh.custom);
+    $("hint").textContent = sh.custom ? "Mit dem Finger Hindernisse malen" : sh.ground ? "Modell verschieben oder vom Boden abheben" : "Modell lässt sich verschieben";
+    $("hint").style.opacity = 1;
+    $("liftRow").hidden = !sh.ground || !!sh.custom; $("lift").value = 0;
+    if (name !== "zylinder") { S.spin = 0; $("spin").value = 0; }
     reset(); showParams();
     for (let q = 0; q < (warm || 0); q++) step();
   }
@@ -618,6 +834,10 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
   $("alpha").addEventListener("input", (e) => { S.alpha = +e.target.value; buildMask(); showParams(); crossings.length = 0; });
   $("spf").addEventListener("input", (e) => { S.spf = +e.target.value; $("spfOut").textContent = S.spf; });
   $("pix").addEventListener("change", (e) => { S.pix = e.target.checked; });
+  $("road").addEventListener("change", (e) => { S.road = e.target.checked; });
+  $("spin").addEventListener("input", (e) => { S.spin = +e.target.value; buildMask(); showParams(); crossings.length = 0; });
+  $("clearBtn").addEventListener("click", () => { CUSTOM.fill(0); buildMask(); showParams(); });
+  $("sampleBtn").addEventListener("click", () => { sampleDrawing(); reset(); showParams(); });
   $("smoke").addEventListener("change", (e) => { S.smoke = e.target.checked; if (!S.smoke) resetSmoke(); });
   document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { S.view = e.target.value; setLegend(); }));
   document.querySelectorAll('input[name="shape"]').forEach((r) => r.addEventListener("change", (e) => { setShape(e.target.value, 0); }));
@@ -628,7 +848,24 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     const r = cv.getBoundingClientRect();
     return { x: (ev.clientX - r.left) / r.width * NX - 0.5, y: NY - 1 - ((ev.clientY - r.top) / r.height * NY - 0.5) };
   }
+  let painting = null;
+  function paintLine(a, b) {
+    const val = +document.querySelector('input[name="tool"]:checked').value, r = 1.6;
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2));
+    for (let t = 0; t <= n; t++) {
+      const px = a.x + (b.x - a.x) * t / n, py = a.y + (b.y - a.y) * t / n;
+      for (let j = Math.floor(py - r); j <= Math.ceil(py + r); j++) for (let i = Math.floor(px - r); i <= Math.ceil(px + r); i++) {
+        if (i < 3 || i > NX - 4 || j < 0 || j > NY - 3) continue;
+        if ((i - px) ** 2 + (j - py) ** 2 <= r * r) CUSTOM[id(i, j)] = val;
+      }
+    }
+    buildMask(true);
+  }
   cv.addEventListener("pointerdown", (ev) => {
+    if (SHAPES[S.shape].custom) {
+      const c = toCell(ev); painting = c; cv.setPointerCapture(ev.pointerId); $("hint").style.opacity = 0;
+      paintLine(c, c); return;
+    }
     const c = toCell(ev), [x0, x1, y0, y1] = S.bbox;
     if (c.x >= x0 - 3 && c.x <= x1 + 3 && c.y >= y0 - 3 && c.y <= y1 + 3) {
       drag = { dx: S.x - c.x, dy: S.y - c.y }; cv.setPointerCapture(ev.pointerId); cv.classList.add("dragging");
@@ -636,6 +873,7 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     }
   });
   cv.addEventListener("pointermove", (ev) => {
+    if (painting) { const c = toCell(ev); paintLine(painting, c); painting = c; return; }
     if (!drag) return;
     const c = toCell(ev), [x0, x1, y0, y1] = S.bbox, w = x1 - x0, h = y1 - y0;
     let nx = Math.round((c.x + drag.dx) * 2) / 2, ny = Math.round((c.y + drag.dy) * 2) / 2;
@@ -645,7 +883,10 @@ button:focus-visible, .seg input:focus-visible + label { outline: 2px solid var(
     else ny = Math.max(S.y - y0 + 4, ny);
     if (nx !== S.x || ny !== S.y) { S.x = nx; S.y = ny; buildMask(); crossings.length = 0; showParams(); }
   });
-  const endDrag = () => { drag = null; cv.classList.remove("dragging"); };
+  const endDrag = () => {
+    if (painting) { painting = null; buildMask(); showParams(); crossings.length = 0; }
+    drag = null; cv.classList.remove("dragging");
+  };
   cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
 
   setLegend();
