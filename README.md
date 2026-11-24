@@ -8,7 +8,12 @@ Eine Excel-Tabelle, die die Strömung um einen Zylinder berechnet. Hinter dem Zy
 |---|---|
 | `Wirbelstrasse.xlsx` | Die Simulation. Läuft ohne Makros: **F9 = 1 Zeitschritt** |
 | `Wirbelstrasse.bas` | Optionales VBA-Modul mit den Makros Starten / Anhalten / Zuruecksetzen / Einzelschritt |
+| `web/wirbelstrasse.html` | Browser-Version (auch fürs Tablet): Datei im Browser öffnen, läuft sofort |
 | `tools/build_workbook.py` | Python-Skript, das die Excel-Datei erzeugt (z. B. für ein anderes Gittermaß) |
+
+## Browser-Version
+
+`web/wirbelstrasse.html` rechnet dasselbe Verfahren auf demselben 130 × 50-Gitter, nur live und flüssig. Mit Schiebereglern für Re und D, drei Ansichten (Wirbelstärke, Stromlinien, Tempo), Messsonde mit Strouhal-Zahl, und den Zylinder kann man mit dem Finger verschieben.
 
 ## Schnellstart (ohne Makros)
 

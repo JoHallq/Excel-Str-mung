@@ -1,0 +1,381 @@
+<title>Wirbelstraße</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: ein Arbeitsplatz wie ein Windkanal-Messstand. Oben das Strömungsbild, darunter Steuerpult und Messwerte. */
+:root {
+  --bg: #f3f5f2;
+  --panel: #ffffff;
+  --fg: #17261f;
+  --muted: #5d6e66;
+  --line: #d5ddd8;
+  --accent: #1f6b4a;
+  --accent-fg: #ffffff;
+  --gold: #e0a100;
+  --solid: #10231a;
+  --field-bg: #ffffff;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1512; --panel: #16201b; --fg: #e3ebe6; --muted: #93a59c; --line: #2a3832;
+    --accent: #3fae7c; --accent-fg: #06140d; --gold: #f2b52a; --solid: #000000; --field-bg: #0b100d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1512; --panel: #16201b; --fg: #e3ebe6; --muted: #93a59c; --line: #2a3832;
+  --accent: #3fae7c; --accent-fg: #06140d; --gold: #f2b52a; --solid: #000000; --field-bg: #0b100d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.9rem, 5vw, 2.6rem); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.eq { font-family: var(--mono); font-size: 0.9rem; color: var(--muted); }
+
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; display: grid; gap: 10px; }
+.canvas-box { position: relative; width: 100%; aspect-ratio: 130 / 50; background: var(--field-bg); border-radius: 3px; overflow: hidden; touch-action: none; }
+#field { width: 100%; height: 100%; display: block; cursor: grab; }
+#field.dragging { cursor: grabbing; }
+.hint { position: absolute; left: 10px; bottom: 8px; font-size: 0.75rem; color: #5d6e66; background: rgba(255,255,255,0.8); padding: 2px 8px; border-radius: 3px; pointer-events: none; transition: opacity .4s; }
+.legend { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); flex-wrap: wrap; }
+.bar { flex: 1 1 160px; height: 8px; border-radius: 2px; background: linear-gradient(90deg, #1f6b4a, #ffffff 50%, #e0a100); border: 1px solid var(--line); }
+.legend .lab { white-space: nowrap; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, .seg label {
+  font: 500 0.9rem var(--body); border-radius: 4px; border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+  padding: 8px 14px; cursor: pointer; min-height: 40px;
+}
+button:hover, .seg label:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible + span, .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+#run { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); min-width: 104px; font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-left: auto; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { border: 0; border-radius: 0; padding: 8px 12px; }
+.seg input:checked + label { background: var(--fg); color: var(--bg); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } .seg { margin-left: 0; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card h2 { font-family: var(--display); font-size: 1.05rem; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+.param { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 4.2rem; align-items: center; gap: 4px 10px; }
+.param .sym { font-family: var(--mono); font-size: 1rem; font-style: italic; }
+.param .name { font-size: 0.85rem; color: var(--muted); grid-column: 2 / 4; }
+.param input[type=range] { grid-column: 1 / 3; width: 100%; accent-color: var(--accent); }
+.param output { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-weight: 500; }
+.row2 { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 0.85rem; color: var(--muted); }
+.row2 input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.stat { display: grid; gap: 0; }
+.stat .k { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.stat .v { font-family: var(--mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.stat .v small { font-size: 0.75rem; color: var(--muted); }
+#spark { width: 100%; height: 70px; display: block; }
+.note { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.warn { color: #b3261e; }
+
+.explain { max-width: 68ch; }
+.explain p { margin: 0 0 0.6em; }
+.explain code { font-family: var(--mono); font-size: 0.85em; background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+.explain a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Wirbelstraße</h1>
+    <div class="eq">∂ω/∂t + u·∇ω = ν∇²ω &nbsp;&nbsp; ∇²ψ = −ω</div>
+  </header>
+
+  <section class="stage" aria-label="Strömungsbild">
+    <div class="canvas-box">
+      <canvas id="field" width="1040" height="400" aria-label="Simulation der Strömung um einen Zylinder"></canvas>
+      <div class="hint" id="hint">Zylinder lässt sich verschieben</div>
+    </div>
+    <div class="legend" id="legend">
+      <span class="lab" id="legL">ω − rechtsdrehend</span>
+      <div class="bar" id="legBar"></div>
+      <span class="lab" id="legR">linksdrehend ω +</span>
+    </div>
+    <div class="controls">
+      <button id="run" type="button">Pause</button>
+      <button id="stepBtn" type="button">Einzelschritt</button>
+      <button id="resetBtn" type="button">Reset</button>
+      <div class="seg" role="radiogroup" aria-label="Ansicht">
+        <input type="radio" name="view" id="vW" value="w" checked><label for="vW">Wirbel ω</label>
+        <input type="radio" name="view" id="vP" value="p"><label for="vP">Stromlinien ψ</label>
+        <input type="radio" name="view" id="vS" value="s"><label for="vS">Tempo |u|</label>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card" aria-label="Parameter">
+      <h2>Parameter</h2>
+      <div class="param">
+        <span class="sym">Re</span><span class="name">Reynoldszahl: ab etwa 47 lösen sich Wirbel ab</span>
+        <input type="range" id="re" min="20" max="300" step="5" value="150"><output id="reOut">150</output>
+      </div>
+      <div class="param">
+        <span class="sym">D</span><span class="name">Zylinderdurchmesser in Zellen</span>
+        <input type="range" id="d" min="6" max="14" step="1" value="10"><output id="dOut">10</output>
+      </div>
+      <div class="param">
+        <span class="sym">n/f</span><span class="name">Zeitschritte pro Bild</span>
+        <input type="range" id="spf" min="1" max="30" step="1" value="8"><output id="spfOut">8</output>
+      </div>
+      <div class="row2">
+        <label><input type="checkbox" id="pix"> Excel-Pixel zeigen (130 × 50 Zellen)</label>
+      </div>
+      <p class="note">Gitter, Verfahren und Startwerte sind dieselben wie in <code>Wirbelstrasse.xlsx</code>: U∞ = 1, Δt = <span id="dtOut">0.10</span>, ν = U∞·D/Re = <span id="nuOut">0.067</span>. Δt wird bei hohem Re automatisch kleiner, damit die Rechnung stabil bleibt.</p>
+    </section>
+
+    <section class="card" aria-label="Messwerte">
+      <h2>Messwerte</h2>
+      <div class="stats">
+        <div class="stat"><span class="k">Schritt n</span><span class="v" id="sN">0</span></div>
+        <div class="stat"><span class="k">Zeit t</span><span class="v" id="sT">0.0</span></div>
+        <div class="stat"><span class="k">Strouhal-Zahl</span><span class="v" id="sSt">–</span></div>
+        <div class="stat"><span class="k">Periode</span><span class="v" id="sP">–</span></div>
+      </div>
+      <canvas id="spark" width="600" height="140" aria-label="Querbewegung v an der Messsonde über die Zeit"></canvas>
+      <p class="note">Sonde 4·D hinter dem Zylinder misst die Querbewegung v. Schwingt sie, schwimmt die Wirbelstraße. St = D / (U∞·T) liegt real bei etwa 0.2.</p>
+    </section>
+  </div>
+
+  <section class="card explain" aria-label="Erklärung">
+    <h2>Was hier gerechnet wird</h2>
+    <p>Jede Zelle speichert die Wirbelstärke ω und die Stromfunktion ψ. Pro Zeitschritt wird ω mit der Strömung transportiert (Upwind 2. Ordnung) und durch die Viskosität verschmiert (Summe der 4 Nachbarn − 4·Mitte). Danach wird ψ aus ∇²ψ = −ω nachgezogen, mit einem überrelaxierten Sweep pro Schritt. Aus ψ folgt die Geschwindigkeit: u = ∂ψ/∂y, v = −∂ψ/∂x.</p>
+    <p>Am Zylinder entsteht Wirbelstärke nach der Thom-Formel ω = 2·(ψ<sub>Körper</sub> − ψ<sub>Nachbar</sub>). Der Zylinder sitzt eine halbe Zelle über der Kanalmitte, damit die Symmetrie bricht und das Pendeln von selbst einsetzt.</p>
+    <p>Genau diese Rechnung steht in der Excel-Datei als eine Formel pro Zelle: <a href="https://github.com/JoHallq/Excel-Str-mung" target="_blank" rel="noopener">github.com/JoHallq/Excel-Str-mung</a>.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  const NX = 130, NY = 50, N = NX * NY, UINF = 1, BETA = 1.5;
+  const W0 = new Float64Array(N), W1 = new Float64Array(N), P = new Float64Array(N);
+  const U = new Float64Array(N), V = new Float64Array(N);
+  const M = new Uint8Array(N), NF = new Uint8Array(N);
+  const S = { re: 150, d: 10, xc: 25, yc: 25.5, n: 0, dt: 0.1, nu: 0.0667, running: true, spf: 8, view: "w", pix: false };
+  const id = (i, j) => j * NX + i;
+  const $ = (s) => document.getElementById(s);
+
+  function updateParams() {
+    S.nu = UINF * S.d / S.re;
+    S.dt = Math.min(0.1, 1.6 * S.nu / (UINF * UINF));
+    $("dtOut").textContent = S.dt.toFixed(3).replace(/0$/, "");
+    $("nuOut").textContent = S.nu.toFixed(3);
+  }
+  function buildMask() {
+    const R = S.d / 2;
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++)
+      M[id(i, j)] = (i - S.xc) ** 2 + (j - S.yc) ** 2 <= R * R ? 1 : 0;
+    NF.fill(0);
+    for (let j = 1; j < NY - 1; j++) for (let i = 1; i < NX - 1; i++) {
+      const k = id(i, j); NF[k] = 4 - M[k + 1] - M[k - 1] - M[k + NX] - M[k - NX];
+    }
+  }
+  function reset() {
+    buildMask();
+    const pb = UINF * S.yc;
+    W0.fill(0); W1.fill(0); U.fill(UINF); V.fill(0);
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) P[id(i, j)] = M[id(i, j)] ? pb : UINF * j;
+    S.n = 0; probe.length = 0; crossings.length = 0; lastV = 0;
+  }
+
+  // Ein Zeitschritt, in derselben Reihenfolge wie die Blöcke im Excel-Blatt
+  function step() {
+    const dt = S.dt, nu = S.nu, pb = UINF * S.yc;
+    W0.set(W1);
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+      const k = id(i, j);
+      if (i === 0 || j === 0 || j === NY - 1 || i === NX - 1) { U[k] = UINF; V[k] = 0; }
+      else { U[k] = (P[k + NX] - P[k - NX]) / 2; V[k] = -(P[k + 1] - P[k - 1]) / 2; }
+    }
+    for (let j = 2; j < NY - 2; j++) for (let i = 2; i < NX - 2; i++) {
+      const k = id(i, j); let w;
+      if (M[k]) {
+        const nf = NF[k];
+        if (nf === 0) w = 0;
+        else {
+          let s = 0;
+          if (!M[k + 1]) s += P[k + 1]; if (!M[k - 1]) s += P[k - 1];
+          if (!M[k + NX]) s += P[k + NX]; if (!M[k - NX]) s += P[k - NX];
+          w = 2 * (pb - s / nf);
+        }
+      } else {
+        const c = W0[k], u = U[k], v = V[k];
+        const dxm = (3 * c - 4 * W0[k - 1] + W0[k - 2]) / 2, dxp = (-3 * c + 4 * W0[k + 1] - W0[k + 2]) / 2;
+        const dym = (3 * c - 4 * W0[k - NX] + W0[k - 2 * NX]) / 2, dyp = (-3 * c + 4 * W0[k + NX] - W0[k + 2 * NX]) / 2;
+        const adv = Math.max(u, 0) * dxm + Math.min(u, 0) * dxp + Math.max(v, 0) * dym + Math.min(v, 0) * dyp;
+        const lap = W0[k + 1] + W0[k - 1] + W0[k + NX] + W0[k - NX] - 4 * c;
+        w = c + dt * (-adv + nu * lap);
+      }
+      W1[k] = w;
+    }
+    for (let j = 2; j < NY - 2; j++) { const w = W1[id(NX - 3, j)]; W1[id(NX - 2, j)] = w; W1[id(NX - 1, j)] = w; }
+    for (let j = NY - 1; j >= 0; j--) for (let i = 0; i < NX; i++) {
+      const k = id(i, j);
+      if (j === 0) P[k] = 0;
+      else if (j === NY - 1) P[k] = UINF * (NY - 1);
+      else if (i === 0) P[k] = UINF * j;
+      else if (i === NX - 1) P[k] = P[k - 1];
+      else if (M[k]) P[k] = pb;
+      else P[k] = (1 - BETA) * P[k] + BETA * (P[k + 1] + P[k - 1] + P[k + NX] + P[k - NX] + W1[k]) / 4;
+    }
+    S.n++;
+    if (!Number.isFinite(W1[id(60, 25)])) { reset(); }
+    sampleProbe();
+  }
+
+  // Messsonde und Strouhal-Zahl
+  const probe = [], crossings = []; let lastV = 0;
+  function sampleProbe() {
+    const pi = Math.min(NX - 4, Math.round(S.xc + 4 * S.d)), pj = Math.round(S.yc);
+    const v = V[id(pi, pj)];
+    if (S.n % 4 === 0) { probe.push(v); if (probe.length > 300) probe.shift(); }
+    if (lastV < 0 && v >= 0 && S.n > 50) { crossings.push(S.n * S.dt); if (crossings.length > 5) crossings.shift(); }
+    lastV = v;
+  }
+  function period() {
+    if (crossings.length < 3) return null;
+    const c = crossings, T = (c[c.length - 1] - c[0]) / (c.length - 1);
+    const amp = probe.slice(-120).reduce((m, x) => Math.max(m, Math.abs(x)), 0);
+    return amp > 0.05 && T > 5 ? T : null;
+  }
+
+  // Darstellung
+  const cv = $("field"), ctx = cv.getContext("2d");
+  const off = document.createElement("canvas"); off.width = NX; off.height = NY;
+  const octx = off.getContext("2d"), img = octx.createImageData(NX, NY);
+  const G = [31, 107, 74], Wt = [255, 255, 255], Au = [224, 161, 0], Sol = [16, 35, 26];
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  function colorW(w) { const t = Math.max(-1, Math.min(1, w / 0.6)); return t < 0 ? mix(Wt, G, -t) : mix(Wt, Au, t); }
+  function colorP(p) { const band = Math.floor(p / 1.5); const f = (p / 1.5) - band; const base = mix([245, 239, 200], [79, 143, 111], Math.max(0, Math.min(1, p / (NY - 1)))); const edge = f < 0.12 ? 0.55 : 1; return [base[0] * edge, base[1] * edge, base[2] * edge]; }
+  function colorS(s) { const t = Math.max(0, Math.min(1, s / 1.6)); return t < 0.6 ? mix([20, 40, 60], [31, 107, 74], t / 0.6) : mix([31, 107, 74], [242, 181, 42], (t - 0.6) / 0.4); }
+  function render() {
+    const d = img.data;
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+      const k = id(i, j), o = ((NY - 1 - j) * NX + i) * 4;
+      let c;
+      if (M[k]) c = Sol;
+      else if (S.view === "w") c = colorW(W1[k]);
+      else if (S.view === "p") c = colorP(P[k]);
+      else c = colorS(Math.hypot(U[k], V[k]));
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = !S.pix;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(off, 0, 0, cv.width, cv.height);
+    // Zylinder als runde Form darüber (nur im glatten Modus)
+    if (!S.pix) {
+      const sx = cv.width / NX, sy = cv.height / NY;
+      ctx.fillStyle = "rgb(16,35,26)";
+      ctx.beginPath(); ctx.arc((S.xc + 0.5) * sx, (NY - 1 - S.yc + 0.5) * sy, (S.d / 2) * sx, 0, Math.PI * 2); ctx.fill();
+    }
+    // Sonde
+    const pi = Math.min(NX - 4, Math.round(S.xc + 4 * S.d)), pj = Math.round(S.yc);
+    const sx = cv.width / NX, sy = cv.height / NY;
+    ctx.strokeStyle = "rgba(23,38,31,0.55)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc((pi + 0.5) * sx, (NY - 1 - pj + 0.5) * sy, 6, 0, Math.PI * 2); ctx.stroke();
+    renderStats();
+  }
+  const sp = $("spark"), sctx = sp.getContext("2d");
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function renderStats() {
+    $("sN").textContent = S.n.toLocaleString("de-DE");
+    $("sT").textContent = (S.n * S.dt).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const T = period();
+    $("sSt").textContent = T ? (S.d / (UINF * T)).toFixed(3).replace(".", ",") : "–";
+    $("sP").innerHTML = T ? T.toFixed(1).replace(".", ",") + " <small>t</small>" : "–";
+    const dpr = window.devicePixelRatio || 1;
+    const cw = Math.round(sp.clientWidth * dpr), ch = Math.round(sp.clientHeight * dpr);
+    if (cw > 0 && (sp.width !== cw || sp.height !== ch)) { sp.width = cw; sp.height = ch; }
+    const w = sp.width, h = sp.height;
+    sctx.clearRect(0, 0, w, h);
+    sctx.strokeStyle = cssVar("--line"); sctx.lineWidth = 1;
+    sctx.beginPath(); sctx.moveTo(0, h / 2); sctx.lineTo(w, h / 2); sctx.stroke();
+    if (probe.length > 1) {
+      const sc = (h / 2 - 4 * dpr) / 1.2;
+      sctx.strokeStyle = cssVar("--accent"); sctx.lineWidth = 2 * dpr; sctx.lineJoin = "round";
+      sctx.beginPath();
+      probe.forEach((v, i) => { const x = i / 299 * w, y = h / 2 - Math.max(-1.2, Math.min(1.2, v)) * sc; i ? sctx.lineTo(x, y) : sctx.moveTo(x, y); });
+      sctx.stroke();
+      const lx = (probe.length - 1) / 299 * w, ly = h / 2 - Math.max(-1.2, Math.min(1.2, probe[probe.length - 1])) * sc;
+      sctx.fillStyle = cssVar("--gold"); sctx.beginPath(); sctx.arc(lx, ly, 3.5 * dpr, 0, Math.PI * 2); sctx.fill();
+    }
+    sctx.fillStyle = cssVar("--muted"); sctx.font = Math.round(11 * dpr) + "px " + cssVar("--mono");
+    sctx.fillText("v an der Sonde", 4 * dpr, 12 * dpr);
+  }
+
+  const legends = {
+    w: ["ω − rechtsdrehend", "linear-gradient(90deg, #1f6b4a, #ffffff 50%, #e0a100)", "linksdrehend ω +"],
+    p: ["ψ klein", "linear-gradient(90deg, #f5efc8, #4f8f6f)", "ψ groß · Linien = Stromlinien"],
+    s: ["langsam", "linear-gradient(90deg, #14283c, #1f6b4a 60%, #f2b52a)", "schnell (1,6 U∞)"],
+  };
+  function setLegend() { const l = legends[S.view]; $("legL").textContent = l[0]; $("legBar").style.background = l[1]; $("legR").textContent = l[2]; }
+
+  // Schleife
+  function frame() {
+    if (S.running) { for (let s = 0; s < S.spf; s++) step(); }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // Bedienung
+  const runBtn = $("run");
+  function setRunning(r) { S.running = r; runBtn.textContent = r ? "Pause" : "Start"; }
+  runBtn.addEventListener("click", () => setRunning(!S.running));
+  $("stepBtn").addEventListener("click", () => { setRunning(false); step(); });
+  $("resetBtn").addEventListener("click", () => { reset(); });
+  $("re").addEventListener("input", (e) => { S.re = +e.target.value; $("reOut").textContent = S.re; updateParams(); crossings.length = 0; });
+  $("d").addEventListener("input", (e) => { S.d = +e.target.value; $("dOut").textContent = S.d; updateParams(); buildMask(); crossings.length = 0; });
+  $("spf").addEventListener("input", (e) => { S.spf = +e.target.value; $("spfOut").textContent = S.spf; });
+  $("pix").addEventListener("change", (e) => { S.pix = e.target.checked; });
+  document.querySelectorAll('input[name="view"]').forEach((r) => r.addEventListener("change", (e) => { S.view = e.target.value; setLegend(); }));
+
+  // Zylinder ziehen
+  let drag = null;
+  function toCell(ev) {
+    const r = cv.getBoundingClientRect();
+    return { x: (ev.clientX - r.left) / r.width * NX - 0.5, y: NY - 1 - ((ev.clientY - r.top) / r.height * NY - 0.5) };
+  }
+  cv.addEventListener("pointerdown", (ev) => {
+    const c = toCell(ev);
+    if (Math.hypot(c.x - S.xc, c.y - S.yc) <= S.d / 2 + 3) {
+      drag = { dx: S.xc - c.x, dy: S.yc - c.y }; cv.setPointerCapture(ev.pointerId); cv.classList.add("dragging");
+      $("hint").style.opacity = 0;
+    }
+  });
+  cv.addEventListener("pointermove", (ev) => {
+    if (!drag) return;
+    const c = toCell(ev), R = S.d / 2;
+    S.xc = Math.max(R + 4, Math.min(NX - 3 * S.d, c.x + drag.dx));
+    S.yc = Math.max(R + 3, Math.min(NY - 4 - R, c.y + drag.dy));
+    S.xc = Math.round(S.xc * 2) / 2; S.yc = Math.round(S.yc * 2) / 2;
+    buildMask(); crossings.length = 0;
+  });
+  const endDrag = () => { drag = null; cv.classList.remove("dragging"); };
+  cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
+
+  updateParams(); reset(); setLegend();
+  // Mit etwas Vorlauf starten, damit sofort ein Nachlauf zu sehen ist
+  for (let s = 0; s < 900; s++) step();
+  requestAnimationFrame(frame);
+})();
+</script>
